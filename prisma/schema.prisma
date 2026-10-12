@@ -1,0 +1,736 @@
+// MOGE HR — Prisma schema (SQLite)
+// NOTE: SQLite does not support enums / Json / scalar lists.
+// All enum-like fields are String, validated server-side with Zod (see src/lib/resources.ts).
+// JSON payloads (audit before/after) are stored as JSON-serialized strings.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Auth & System ----
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  name            String
+  roleId          String
+  role            Role      @relation(fields: [roleId], references: [id])
+  staffId         String?   @unique
+  staff           Staff?    @relation(fields: [staffId], references: [id])
+  isActive        Boolean   @default(true)
+  avatarUrl       String?
+  preferredLocale String    @default("en")
+  theme           String    @default("system")
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  auditLogs AuditLog[]
+  documents Document[]
+
+  @@index([roleId])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique // USER | ADMIN | SUPERADMIN
+  label       String?
+  permissions Permission[]
+  users       User[]
+}
+
+model Permission {
+  id    String @id @default(cuid())
+  key   String @unique
+  roles Role[]
+
+  @@index([key])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  staffId       String?
+  userName      String?
+  action        String // CREATE | UPDATE | DELETE | VIEW | LOGIN | LOGIN_FAILED | LOGOUT | EXPORT | DOWNLOAD
+  module        String
+  entityType    String
+  entityId      String?
+  before        String? // JSON string
+  after         String? // JSON string
+  changedFields String? // JSON string[]
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@index([module, createdAt])
+  @@index([staffId, createdAt])
+}
+
+model SystemSetting {
+  id                String   @id @default("singleton")
+  siteNameEn        String   @default("MOGE HR")
+  siteNameMm        String   @default("MOGE HR")
+  taglineEn         String?
+  taglineMm         String?
+  logoFullUrl       String?
+  logoSmallUrl      String?
+  logoMobileUrl     String?
+  faviconUrl        String?
+  loginBackgroundUrl String?
+  footerTextEn      String?
+  footerTextMm      String?
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+}
+
+// ---- Staff master ----
+
+model Staff {
+  id           String    @id @default(cuid())
+  staffNo      String    @unique
+  nameEn       String
+  nameMm       String?
+  gender       String    @default("MALE") // MALE | FEMALE | OTHER
+  dateOfBirth  DateTime?
+  placeOfBirth String?
+  nrcNo        String?   @unique
+  nationality  String?
+  religion     String?
+  bloodGroup   String?
+  maritalStatus String?
+  phone        String?
+  email        String?
+  photoUrl     String?
+  status       String    @default("ACTIVE") // ACTIVE | RETIRED | RESIGNED | TRANSFERRED | SUSPENDED | DECEASED | OTHER
+  joinDate     DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user                User?
+  addresses           EmployeeAddress[]
+  familyMembers       FamilyMember[]
+  educations          StaffEducation[]
+  languages           StaffLanguage[]
+  skills              StaffSkill[]
+  closeContacts       CloseContact[]
+  references          ReferencePerson[]
+  positions           StaffPosition[]
+  ranks               StaffRank[]
+  serviceHistory      StaffServiceHistory[]
+  promotions          Promotion[]
+  transfers           Transfer[]
+  separations         Separation[]
+  awards              StaffAward[]
+  trainings           StaffTraining[]
+  militaryServices    MilitaryService[]
+  activities          StaffActivity[]
+  hobbies             StaffHobby[]
+  politicalMemberships PoliticalMembership[]
+  conflictAssignments StaffConflictAssignment[]
+  criminalRecords     CriminalRecord[]
+  disciplinaryCases   DisciplinaryCase[]
+  foreignTravels      ForeignTravel[]
+  // NOTE: documents are polymorphic (entityType/entityId) — no direct relation
+
+  @@index([status])
+  @@index([nameEn])
+  @@index([deletedAt])
+}
+
+model EmployeeAddress {
+  id            String    @id @default(cuid())
+  staffId       String
+  staff         Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type          String    @default("CURRENT") // PERMANENT | CURRENT | PREVIOUS
+  addressLine   String
+  township      String?
+  district      String?
+  stateRegion   String?
+  phone         String?
+  isVerified    Boolean   @default(false)
+  effectiveFrom DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+model FamilyMember {
+  id           String    @id @default(cuid())
+  staffId      String
+  staff        Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  relationship String    @default("OTHER") // FATHER | MOTHER | SPOUSE | CHILD | SIBLING | OTHER
+  name         String
+  dateOfBirth  DateTime?
+  occupation   String?
+  nrcNo        String?
+  address      String?
+  phone        String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+model StaffEducation {
+  id             String   @id @default(cuid())
+  staffId        String
+  staff          Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  institution    String
+  degree         String?
+  major          String?
+  country        String?
+  startYear      Int?
+  endYear        Int?
+  graduationYear Int?
+  certificateUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model StaffLanguage {
+  id            String   @id @default(cuid())
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  language      String
+  reading       String   @default("FAIR") // POOR | FAIR | GOOD | EXCELLENT
+  writing       String   @default("FAIR")
+  speaking      String   @default("FAIR")
+  listening     String   @default("FAIR")
+  certification String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model StaffSkill {
+  id            String   @id @default(cuid())
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  name          String
+  category      String   @default("TECHNICAL") // TECHNICAL | PROFESSIONAL | SOFT
+  level         String   @default("GOOD") // POOR | FAIR | GOOD | EXCELLENT
+  certification String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model CloseContact {
+  id          String   @id @default(cuid())
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  name        String
+  relationship String?
+  occupation  String?
+  address     String?
+  phone       String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model ReferencePerson {
+  id           String   @id @default(cuid())
+  staffId      String
+  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  name         String
+  relationship String?
+  position     String?
+  organization String?
+  phone        String?
+  address      String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+// ---- Employment ----
+
+model Department {
+  id          String    @id @default(cuid())
+  name        String
+  nameMm      String?
+  code        String?   @unique
+  parentId    String?
+  parent      Department?     @relation("DeptTree", fields: [parentId], references: [id])
+  children    Department[]    @relation("DeptTree")
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  positions   Position[]
+  staffPositions StaffPosition[]
+  serviceHistory StaffServiceHistory[]
+  transfersFrom Transfer[] @relation("TransferFromDept")
+  transfersTo   Transfer[] @relation("TransferToDept")
+
+  @@index([parentId])
+  @@index([name])
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  name         String
+  nameMm       String?
+  code         String?  @unique
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  level        Int?
+  description  String?
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  staffPositions StaffPosition[]
+  serviceHistory StaffServiceHistory[]
+  transfersFrom  Transfer[] @relation("TransferFromPos")
+  transfersTo    Transfer[] @relation("TransferToPos")
+  separationsFinal Separation[] @relation("SeparationFinalPos")
+
+  @@index([departmentId])
+  @@index([name])
+}
+
+model StaffPosition {
+  id           String   @id @default(cuid())
+  staffId      String
+  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  positionId   String
+  position     Position @relation(fields: [positionId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  startDate    DateTime
+  endDate      DateTime?
+  isCurrent    Boolean  @default(true)
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([isCurrent])
+}
+
+model Rank {
+  id         String   @id @default(cuid())
+  name       String
+  nameMm     String?
+  code       String?  @unique
+  level      Int?
+  category   String?
+  deletedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  staffRanks     StaffRank[]
+  serviceHistory StaffServiceHistory[]
+  promotionsFrom Promotion[] @relation("PromoFromRank")
+  promotionsTo   Promotion[] @relation("PromoToRank")
+  separationsFinal Separation[] @relation("SeparationFinalRank")
+
+  @@index([name])
+}
+
+model StaffRank {
+  id            String   @id @default(cuid())
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  rankId        String
+  rank          Rank     @relation(fields: [rankId], references: [id])
+  appointedDate DateTime?
+  effectiveDate DateTime
+  endDate       DateTime?
+  isCurrent     Boolean  @default(true)
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([isCurrent])
+}
+
+model StaffServiceHistory {
+  id           String    @id @default(cuid())
+  staffId      String
+  staff        Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type         String // JOINING | APPOINTMENT | TRANSFER | PROMOTION | DEMOTION | REASSIGNMENT | RETIREMENT | RESIGNATION | OTHER
+  title        String
+  fromDate     DateTime
+  toDate       DateTime?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  positionId   String?
+  position     Position?   @relation(fields: [positionId], references: [id])
+  rankId       String?
+  rank         Rank?       @relation(fields: [rankId], references: [id])
+  location     String?
+  orderNo      Int        @default(1)
+  remarks      String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([staffId, fromDate])
+}
+
+model Promotion {
+  id           String   @id @default(cuid())
+  staffId      String
+  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  fromRankId   String?
+  fromRank     Rank?    @relation("PromoFromRank", fields: [fromRankId], references: [id])
+  toRankId     String
+  toRank       Rank     @relation("PromoToRank", fields: [toRankId], references: [id])
+  appliedDate  DateTime?
+  effectiveDate DateTime
+  authority    String?
+  status       String   @default("PENDING") // PENDING | APPROVED | REJECTED | EFFECTIVE | CANCELLED
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([status])
+}
+
+model Transfer {
+  id             String   @id @default(cuid())
+  staffId        String
+  staff          Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  fromDepartmentId String?
+  fromDepartment Department? @relation("TransferFromDept", fields: [fromDepartmentId], references: [id])
+  toDepartmentId String
+  toDepartment   Department   @relation("TransferToDept", fields: [toDepartmentId], references: [id])
+  fromPositionId String?
+  fromPosition   Position? @relation("TransferFromPos", fields: [fromPositionId], references: [id])
+  toPositionId   String?
+  toPosition     Position? @relation("TransferToPos", fields: [toPositionId], references: [id])
+  transferDate   DateTime
+  reason         String?
+  status         String   @default("PENDING")
+  remarks        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([status])
+}
+
+model Separation {
+  id               String    @id @default(cuid())
+  staffId          String
+  staff            Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type             String // RETIREMENT | RESIGNATION | TERMINATION | TRANSFER_OUT | DEATH | OTHER
+  reason           String?
+  effectiveDate    DateTime
+  finalRankId      String?
+  finalRank        Rank?     @relation("SeparationFinalRank", fields: [finalRankId], references: [id])
+  finalPositionId  String?
+  finalPosition    Position? @relation("SeparationFinalPos", fields: [finalPositionId], references: [id])
+  remarks          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+// ---- Development ----
+
+model Award {
+  id          String   @id @default(cuid())
+  name        String
+  nameMm      String?
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staffAwards StaffAward[]
+}
+
+model StaffAward {
+  id             String   @id @default(cuid())
+  staffId        String
+  staff          Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  awardId        String?
+  award          Award?   @relation(fields: [awardId], references: [id])
+  title          String
+  awardedDate    DateTime
+  authority      String?
+  reason         String?
+  certificateUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model Training {
+  id         String   @id @default(cuid())
+  name       String
+  nameMm     String?
+  institution String?
+  country    String?
+  type       String?
+  deletedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  staffTrainings StaffTraining[]
+}
+
+model StaffTraining {
+  id             String   @id @default(cuid())
+  staffId        String
+  staff          Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  trainingId     String?
+  training       Training? @relation(fields: [trainingId], references: [id])
+  courseName     String
+  institution    String?
+  location       String?
+  country        String?
+  startDate      DateTime
+  endDate        DateTime?
+  result         String?
+  certificateUrl String?
+  isForeign      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([isForeign])
+}
+
+// ---- Background / Service ----
+
+model MilitaryService {
+  id            String    @id @default(cuid())
+  staffId       String
+  staff         Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  serviceNumber String?
+  unit          String?
+  rank          String?
+  position      String?
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String?
+  training      String?
+  remarks       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+model StaffActivity {
+  id          String   @id @default(cuid())
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type        String   @default("OTHER") // SOCIAL | ORGANIZATIONAL | PROFESSIONAL | COMMUNITY | OTHER
+  name        String
+  role        String?
+  date        DateTime?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model StaffHobby {
+  id          String   @id @default(cuid())
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  level       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model PoliticalParty {
+  id          String   @id @default(cuid())
+  name        String
+  nameMm      String?
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships PoliticalMembership[]
+}
+
+model PoliticalMembership {
+  id           String    @id @default(cuid())
+  staffId      String
+  staff        Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  partyId      String?
+  party        PoliticalParty? @relation(fields: [partyId], references: [id])
+  partyName    String
+  membershipNo String?
+  position     String?
+  joinDate     DateTime?
+  leaveDate    DateTime?
+  status       String?
+  remarks      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+model ConflictArea {
+  id          String   @id @default(cuid())
+  name        String
+  location    String?
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments StaffConflictAssignment[]
+}
+
+model StaffConflictAssignment {
+  id             String    @id @default(cuid())
+  staffId        String
+  staff          Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  conflictAreaId String
+  conflictArea   ConflictArea @relation(fields: [conflictAreaId], references: [id])
+  unit           String?
+  position       String?
+  deploymentDate DateTime
+  returnDate     DateTime?
+  reason         String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+model CriminalRecord {
+  id         String   @id @default(cuid())
+  staffId    String
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  caseNumber String?
+  caseType   String?
+  court      String?
+  offense    String?
+  caseDate   DateTime?
+  status     String?
+  judgment   String?
+  penalty    String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([staffId])
+}
+
+model DisciplinaryCase {
+  id           String    @id @default(cuid())
+  staffId      String
+  staff        Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  caseNumber   String?
+  type         String    @default("OTHER") // WARNING | SUSPENSION | ADMIN_ACTION | INVESTIGATION | OTHER
+  title        String
+  description  String?
+  dateOpened   DateTime
+  status       String    @default("OPEN") // OPEN | UNDER_REVIEW | DECIDED | CLOSED
+  decision     String?
+  penalty      String?
+  appealStatus String?
+  closedDate   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  actions DisciplinaryAction[]
+
+  @@index([staffId])
+  @@index([status])
+}
+
+model DisciplinaryAction {
+  id          String          @id @default(cuid())
+  caseId      String
+  case        DisciplinaryCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actionType  String
+  description String?
+  actionDate  DateTime
+  authority   String?
+  remarks     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([caseId])
+}
+
+// ---- Foreign Affairs ----
+
+model ForeignTravel {
+  id                 String    @id @default(cuid())
+  staffId            String
+  staff              Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  purpose            String    @default("OFFICIAL") // OFFICIAL | TRAINING | CONFERENCE | ASSIGNMENT | SECONDMENT | OTHER
+  destinationCountry String
+  organization       String?
+  sponsor            String?
+  startDate          DateTime
+  endDate            DateTime?
+  approvalRef        String?
+  returnStatus       String?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([staffId])
+}
+
+// ---- Documents (polymorphic attachments) ----
+
+model Document {
+  id           String   @id @default(cuid())
+  title        String
+  category     String   @default("OTHER") // ID | NRC | EDUCATION | EMPLOYMENT | TRAINING | AWARD | MEDICAL | LEGAL | DISCIPLINARY | PROMOTION | TRANSFER | OTHER
+  fileUrl      String
+  fileName     String
+  fileType     String
+  fileSize     Int      @default(0)
+  version      Int      @default(1)
+  expiryDate   DateTime?
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  entityType   String
+  entityId     String
+  accessLevel  String   @default("INTERNAL") // INTERNAL | RESTRICTED | CONFIDENTIAL
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([category])
+}
