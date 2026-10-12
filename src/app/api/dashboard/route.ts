@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   const staff = await db.staff.findMany({
     where: { deletedAt: null },
     select: {
-      id: true, status: true, gender: true, dateOfBirth: true, joinDate: true,
+      id: true, staffNo: true, nameEn: true, nameMm: true, photoUrl: true, status: true,
+      gender: true, dateOfBirth: true, joinDate: true,
       positions: { where: { isCurrent: true }, take: 1, include: { position: { include: { department: true } }, department: true } },
       ranks: { where: { isCurrent: true }, take: 1, include: { rank: true } },
     },
@@ -52,6 +53,25 @@ export async function GET(req: NextRequest) {
       return turns60At >= now && turns60At <= retirementCutoff
     })
     .length
+
+  // Upcoming birthdays: employed staff with birthday in the next 30 days
+  const upcomingBirthdays = staff
+    .filter((s) => s.dateOfBirth && (s.status === 'ACTIVE' || s.status === 'SUSPENDED'))
+    .map((s) => {
+      if (!s.dateOfBirth) return null
+      const dob = new Date(s.dateOfBirth)
+      let next = new Date(now.getFullYear(), dob.getMonth(), dob.getDate())
+      if (next.getTime() < now.getTime() - 86400000) next = new Date(now.getFullYear() + 1, dob.getMonth(), dob.getDate())
+      const daysUntil = Math.ceil((next.getTime() - now.getTime()) / 86400000)
+      return {
+        id: s.id, staffNo: s.staffNo, nameEn: s.nameEn, nameMm: s.nameMm, photoUrl: s.photoUrl,
+        department: s.positions[0]?.department?.name || s.positions[0]?.position?.department?.name || null,
+        birthday: next.toISOString(), daysUntil,
+      }
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null && s.daysUntil >= 0 && s.daysUntil <= 30)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .slice(0, 6)
 
   // Recent activity feed (audit-based)
   const recentActivity = await db.auditLog.findMany({
@@ -97,5 +117,6 @@ export async function GET(req: NextRequest) {
     rankDistribution: Object.entries(byRank).map(([name, count]) => ({ name, count })),
     recentActivity,
     recentStaff: recentStaffData,
+    upcomingBirthdays,
   })
 }

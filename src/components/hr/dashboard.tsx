@@ -5,11 +5,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useI18n } from '@/i18n'
 import { apiGet, qs } from '@/lib/client-api'
 import { useUI } from '@/store/ui'
-import { GlassCard, StatCard, PageHeader, StatusBadge, StaffAvatar, ListSkeleton, EmptyState } from './shared'
+import { GlassCard, StatCard, PageHeader, StatusBadge, StaffAvatar, ListSkeleton, EmptyState, useModuleLabel } from './shared'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, CartesianGrid,
 } from 'recharts'
-import { Users, UserCheck, UserPlus, Clock, Activity as ActivityIcon } from 'lucide-react'
+import { Users, UserCheck, UserPlus, Clock, Activity as ActivityIcon, Cake } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface DashboardData {
@@ -21,6 +21,7 @@ interface DashboardData {
   ageDistribution: { range: string; count: number }[]
   recentActivity: { id: string; userName: string | null; action: string; module: string; entityType: string; createdAt: string }[]
   recentStaff: { id: string; staffNo: string; nameEn: string; nameMm: string | null; photoUrl: string | null; status: string; position: string | null; department: string | null; rank: string | null; joinDate: string | null }[]
+  upcomingBirthdays: { id: string; staffNo: string; nameEn: string; nameMm: string | null; photoUrl: string | null; department: string | null; birthday: string; daysUntil: number }[]
 }
 
 const GOLD = '#C9A227'
@@ -42,6 +43,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export function DashboardView() {
   const { t, formatNumber, formatDate, locale } = useI18n()
+  const moduleLabel = useModuleLabel()
   const { navigate } = useUI()
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -108,12 +110,22 @@ export function DashboardView() {
         <GlassCard className="p-4 sm:p-5 lg:col-span-2">
           <h3 className="text-sm font-semibold">{t('dashboard.byDepartment')}</h3>
           <p className="text-xs text-muted-foreground">{t('dashboard.chartHintDepartment')}</p>
-          <div className="mt-3 h-60">
+          <div className="mt-3 h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.departmentDistribution} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,162,39,0.15)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} interval={0} angle={-30} textAnchor="end" height={54} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: '#6B7280' }}
+                  interval={0}
+                  angle={-25}
+                  textAnchor="end"
+                  height={58}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)}
+                />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} width={36} />
                 <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(201,162,39,0.08)' }} />
                 <Bar dataKey="count" name={t('dashboard.totalStaff')} fill={GOLD} radius={[6, 6, 0, 0]} maxBarSize={42} />
               </BarChart>
@@ -156,23 +168,60 @@ export function DashboardView() {
         </GlassCard>
       </div>
 
-      {/* Status breakdown */}
-      <GlassCard className="p-4 sm:p-5">
-        <h3 className="mb-3 text-sm font-semibold">{t('dashboard.statusBreakdown')}</h3>
-        <div className="flex flex-wrap gap-2">
-          {statusEntries.map(([status, count]) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => navigate('staff', { status })}
-              className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2 transition-all hover:border-primary/40 hover:shadow-sm"
-            >
-              <StatusBadge value={status} />
-              <span className="text-sm font-semibold">{formatNumber(count)}</span>
-            </button>
-          ))}
-        </div>
-      </GlassCard>
+      {/* Status breakdown + upcoming birthdays */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <GlassCard className="p-4 sm:p-5">
+          <h3 className="mb-3 text-sm font-semibold">{t('dashboard.statusBreakdown')}</h3>
+          <div className="flex flex-wrap gap-2">
+            {statusEntries.map(([status, count]) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => navigate('staff', { status })}
+                className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2 transition-all hover:border-primary/40 hover:shadow-sm"
+              >
+                <StatusBadge value={status} />
+                <span className="text-sm font-semibold">{formatNumber(count)}</span>
+              </button>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4 sm:p-5 lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Cake className="h-4 w-4 text-primary" /> {t('dashboard.upcomingBirthdays')}
+            </h3>
+            <span className="text-xs text-muted-foreground">{t('dashboard.birthdaysHint')}</span>
+          </div>
+          {data.upcomingBirthdays.length === 0 ? (
+            <EmptyState title={t('dashboard.noBirthdays')} />
+          ) : (
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+              {data.upcomingBirthdays.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => navigate('staff-detail', { id: s.id })}
+                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-accent"
+                >
+                  <StaffAvatar name={s.nameEn} photoUrl={s.photoUrl} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{s.nameEn}{s.nameMm ? ` · ${s.nameMm}` : ''}</p>
+                    <p className="truncate text-xs text-muted-foreground">{s.department || s.staffNo}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-semibold text-primary">
+                      {s.daysUntil === 0 ? t('dashboard.today') : s.daysUntil === 1 ? t('dashboard.tomorrow') : t('dashboard.inDays', { n: s.daysUntil })}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{formatDate(s.birthday, { year: undefined, hour: undefined, minute: undefined } as Intl.DateTimeFormatOptions)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+      </div>
 
       {/* Recent staff + activity */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -219,8 +268,8 @@ export function DashboardView() {
                   <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary/60" />
                   <div className="min-w-0">
                     <p className="truncate">
-                      <span className="font-medium">{t(`enums.${a.action}`)}</span>
-                      <span className="text-muted-foreground"> {a.module}</span>
+                      <StatusBadge value={a.action} className="px-1.5 py-0 text-[10px]" />
+                      <span className="ml-1.5 font-medium">{moduleLabel(a.module)}</span>
                     </p>
                     <p className="truncate text-muted-foreground">
                       {t('dashboard.activityBy')} {a.userName || '—'} · {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}

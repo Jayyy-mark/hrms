@@ -9,7 +9,7 @@ A full-stack, production-ready HR Management System with **white-gold glassmorph
 ```bash
 bun install              # install dependencies
 bun run db:push          # create SQLite schema (db/custom.db)
-bun run db:seed          # seed roles, users, org, 25 staff + all sub-records
+bun run db:seed          # seed roles, users, org, 28 staff + all sub-records
 bun run dev              # start dev server on http://localhost:3000
 ```
 
@@ -47,7 +47,9 @@ bun run dev              # start dev server on http://localhost:3000
 - **Audit logging** — every CREATE/UPDATE/DELETE/VIEW(sensitive)/LOGIN/LOGIN_FAILED/LOGOUT/EXPORT writes a field-level diff (before/after + changedFields) with IP + user agent. SUPERADMIN audit-log browser with filters, detail drawer, CSV export. Per-staff History tab.
 - **i18n** — full English + Myanmar (Padauk font for `mm`, Poppins for `en`), locale switcher in topbar, per-user persisted.
 - **White-gold glassmorphism** — light ivory + gold aurora / dark #0B0E14 themes, glass cards, gold CTA gradient, skeletons everywhere, reduced-motion support.
-- **Dashboard & 12 reports** — stat cards, gender pie, department/rank/age charts, recent activity feed; reports with CSV export + print stylesheet.
+- **Dashboard & 12 reports** — stat cards, gender pie, department/rank/age charts, upcoming-birthdays card, recent activity feed (color-coded action badges + humanized module labels); reports render status badges and include a branded print header + footer.
+- **Org chart (Departments)** — visual top-down hierarchy with CSS connectors, per-department headcount (incl. sub-departments aggregate), zoom controls, horizontal scroll on mobile; click a node to drill into the filtered staff list. Localized (EN/MM).
+- **Bulk CSV staff import (ADMIN+)** — 3-step modal (upload → validated preview → result summary) with downloadable template, RFC-4180 CSV parser, per-row validation (name/gender/dates/email/status/department/position resolution), duplicate detection (DB + batch), auto-generated staffNo, rank derived from position level, JOINING service history; the import itself is audited.
 - **Global search** — ⌘K / Ctrl+K glass command palette (staff by name/No/NRC/phone, departments, positions, ranks, trainings, awards — role-filtered).
 - **Site settings (SUPERADMIN)** — site name/tagline/footer (EN+MM), logo variants (full/small/mobile), favicon, login background with live preview; branding read by login page, sidebar, topbar, footer, document title. No hardcoded "MOGE" in UI.
 - **Security** — bcrypt(12) + JWT httpOnly sessions (jose), login rate-limit 5/min/IP, Zod validation on every mutation, API-level permission re-checks.
@@ -57,12 +59,12 @@ bun run dev              # start dev server on http://localhost:3000
 
 ```
 prisma/schema.prisma        # 40 models, SQLite-adapted, soft deletes, indexes
-prisma/seed.ts              # demo dataset (25 staff + all modules + audit trail)
+prisma/seed.ts              # demo dataset (28 staff + all modules + audit trail; dynamic dates for new hires / retirees / birthdays)
 src/lib/                    # auth (JWT+bcrypt), permissions, audit, resources registry, settings cache
 src/app/api/                # REST endpoints (envelope { success, data, meta })
 src/app/page.tsx            # SPA entry
 src/components/hr/          # shell (sidebar/topbar/palette), dashboard, staff list/detail, module pages, admin, profile
-src/i18n/                   # en.json / mm.json (~635 keys, strict parity)
+src/i18n/                   # en.json / mm.json (~717 keys, strict parity)
 design/exports/             # Figma reference frames (PNG)
 design/FIGMA_MAP.md         # frame → view mapping + precedence rules
 docs/screenshots/           # verification screenshots

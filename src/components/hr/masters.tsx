@@ -3,15 +3,15 @@
 import React, { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useI18n } from '@/i18n'
-import { apiPost, apiPut, apiDelete, apiQuery, qs } from '@/lib/client-api'
+import { apiGet, apiPost, apiPut, apiDelete, apiQuery, qs } from '@/lib/client-api'
 import { useUI } from '@/store/ui'
 import {
-  GlassCard, PageHeader, DataTable, RowActionsMenu, ConfirmDialog, FormModal, EmptyState,
+  GlassCard, PageHeader, DataTable, RowActionsMenu, ConfirmDialog, FormModal, EmptyState, ListSkeleton,
   type FormValues, rowToValues, toInputDate, type Column,
 } from './shared'
 import { MODULE_CONFIGS, useModuleColumns, useModuleFields, useMasters } from './module-configs'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, ChevronDown, Plus, Building2, FolderTree } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, Building2, FolderTree, Network, Users, ZoomIn, ZoomOut, Maximize } from 'lucide-react'
 import { toast } from 'sonner'
 
 /** Master data page — generic CRUD for departments/positions/ranks/catalogs. */
@@ -121,7 +121,8 @@ export function MasterDataPage({ slug }: { slug: string }) {
         }
       />
 
-      {/* Department tree view */}
+      {/* Department org chart + tree view */}
+      {slug === 'departments' && <OrgChartCard />}
       {slug === 'departments' && <DepartmentTreeCard rows={rows} loading={isLoading} onEdit={(r) => { setEditing(r); setFormOpen(true) }} isAdmin={isAdmin} />}
 
       <GlassCard className="p-3 sm:p-4">
@@ -165,6 +166,113 @@ interface DeptRow {
   code: string | null
   parentId: string | null
   children?: { id: string; name: string }[]
+}
+
+/* ============ Org chart (visual hierarchy) ============ */
+
+interface OrgNode {
+  id: string
+  name: string
+  nameMm: string | null
+  code: string | null
+  parentId: string | null
+  description: string | null
+  headcount: number
+  totalHeadcount: number
+  positions: { name: string; level: number }[]
+}
+
+function OrgChartCard() {
+  const { t, locale, formatNumber } = useI18n()
+  const navigate = useUI((s) => s.navigate)
+  const [zoom, setZoom] = useState(1)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['org-chart'],
+    queryFn: () => apiGet<{ nodes: OrgNode[]; generatedAt: string }>('/api/org-chart'),
+  })
+
+  const nodes = data?.nodes ?? []
+  const childrenOf = useMemo(() => {
+    const m: Record<string, OrgNode[]> = {}
+    for (const n of nodes) {
+      if (n.parentId) (m[n.parentId] ||= []).push(n)
+    }
+    for (const k of Object.keys(m)) m[k].sort((a, b) => a.name.localeCompare(b.name))
+    return m
+  }, [nodes])
+  const roots = nodes.filter((n) => !n.parentId)
+
+  const renderNode = (node: OrgNode): React.ReactNode => {
+    const children = childrenOf[node.id] || []
+    const label = locale === 'mm' && node.nameMm ? node.nameMm : node.name
+    const isRoot = !node.parentId
+    return (
+      <li key={node.id}>
+        <button
+          type="button"
+          className={`org-node group flex flex-col items-center gap-1.5 rounded-2xl border px-3 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:shadow-lg ${
+            isRoot
+              ? 'border-primary/40 bg-primary/10 shadow-md'
+              : 'border-border/60 bg-background/70 hover:border-primary/40'
+          }`}
+          onClick={() => navigate('staff', { departmentId: node.id })}
+          title={node.description || label}
+        >
+          <div className="flex items-center gap-1.5">
+            <Building2 className={`h-3.5 w-3.5 ${isRoot ? 'text-primary' : 'text-primary/70'}`} />
+            <span className="text-xs font-semibold leading-tight">{label}</span>
+          </div>
+          {node.code && <span className="rounded-full bg-primary/12 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-primary">{node.code}</span>}
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              <span className="font-semibold text-foreground">{formatNumber(node.totalHeadcount)}</span>
+            </span>
+            {children.length > 0 && <span className="text-muted-foreground/80">({t('orgChart.total')})</span>}
+          </div>
+        </button>
+        {children.length > 0 && <ul>{children.map(renderNode)}</ul>}
+      </li>
+    )
+  }
+
+  return (
+    <GlassCard className="p-4 sm:p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <Network className="h-4 w-4 text-primary" /> {t('orgChart.title')}
+          </h3>
+          <p className="text-xs text-muted-foreground">{t('orgChart.subtitle')}</p>
+        </div>
+        <div className="flex items-center gap-1 no-print">
+          <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.15).toFixed(2)))} aria-label={t('orgChart.zoomOut')}>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <span className="w-10 text-center text-xs font-medium text-muted-foreground">{Math.round(zoom * 100)}%</span>
+          <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={() => setZoom((z) => Math.min(1.4, +(z + 0.15).toFixed(2)))} aria-label={t('orgChart.zoomIn')}>
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={() => setZoom(1)} aria-label={t('orgChart.zoomReset')}>
+            <Maximize className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      {isLoading ? (
+        <ListSkeleton rows={4} />
+      ) : roots.length === 0 ? (
+        <EmptyState title={t('common.noData')} />
+      ) : (
+        <div className="relative">
+          <div className="org-tree" style={{ zoom }}>
+            <ul>{roots.map(renderNode)}</ul>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-muted-foreground/70 sm:hidden">{t('orgChart.scrollHint')}</p>
+        </div>
+      )}
+    </GlassCard>
+  )
 }
 
 /** Hierarchical tree view for departments. */

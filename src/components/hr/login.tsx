@@ -117,7 +117,7 @@ export function LoginView() {
               {tagline || t('auth.signInSubtitle')}
             </p>
           </div>
-          <p className="text-xs text-white/60">{footer || `© ${new Date().getFullYear()} ${siteName}`}</p>
+          <p className="hidden text-xs text-white/60 lg:block">{footer || `© ${new Date().getFullYear()} ${siteName}`}</p>
         </div>
       </div>
 
@@ -238,7 +238,7 @@ export function LoginView() {
               </div>
             </div>
           </GlassCard>
-          <p className="mt-4 hidden text-center text-xs text-muted-foreground lg:block">
+          <p className="mt-4 text-center text-xs text-muted-foreground lg:hidden">
             {footer || `© ${new Date().getFullYear()} ${siteName} · ${t('auth.footerRights')}`}
           </p>
         </motion.div>

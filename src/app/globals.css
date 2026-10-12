@@ -319,3 +319,77 @@
     overflow: visible !important;
   }
 }
+
+/* ============ Org chart (department hierarchy) ============ */
+/* Structure: .org-tree > ul > li > (.org-node + ul > li > ...)              */
+/* Connectors:                                                                */
+/*   ul::before      — vertical drop from parent node bottom to children row  */
+/*   li::before      — horizontal line, left half (left edge → li center)     */
+/*   li::after       — horizontal line, right half (li center → right edge)   */
+/*                     + vertical drop (border-left) from sibling row to node */
+.org-tree {
+  --org-line: color-mix(in srgb, var(--primary) 35%, transparent);
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+.org-tree ul {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 1.75rem 0 0;
+  list-style: none;
+}
+.org-tree ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 1.75rem;
+  border-left: 2px solid var(--org-line);
+}
+.org-tree li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.75rem 0.5rem 0;
+  list-style: none;
+}
+.org-tree li::before,
+.org-tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 1.75rem;
+  border-top: 2px solid var(--org-line);
+}
+.org-tree li::after {
+  right: auto;
+  left: 50%;
+  border-left: 2px solid var(--org-line);
+}
+/* first/last children: trim the overhanging horizontal halves */
+.org-tree li:first-child::before { border-top: 0; }
+.org-tree li:last-child::after { border-top: 0; }
+/* only child: single vertical drop handled by ul::before; node touches row */
+.org-tree li:only-child::before,
+.org-tree li:only-child::after { display: none; }
+.org-tree li:only-child { padding-top: 0; }
+/* root level: no connectors above the root node */
+.org-tree > ul { padding-top: 0; }
+.org-tree > ul::before { display: none; }
+.org-tree > ul > li { padding-top: 0; }
+.org-tree > ul > li::before,
+.org-tree > ul > li::after { display: none; }
+.org-node {
+  position: relative;
+  z-index: 1;
+  min-width: 9.5rem;
+  max-width: 13rem;
+}

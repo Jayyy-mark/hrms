@@ -119,3 +119,56 @@ Stage Summary:
 - App fully functional end-to-end for all 3 roles; all acceptance criteria covered within SPA constraint
 - Sub-agents completed: 2-a (mm.json 633 keys parity-verified), 2-b (seed 25 staff + all modules, deterministic, re-runnable via `bun run db:seed`)
 - Remaining polish ideas for future rounds: person photo generation for seed staff, org chart visualization, additional report charts, printable report headers, bulk import
+
+---
+Task ID: 4
+Agent: main-orchestrator (QA + polish + features round)
+Task: Post-MVP QA via agent-browser/VLM, fix defects, add org chart + bulk CSV import + dashboard vitality features
+
+Work Log:
+- QA pass 1 (agent-browser + VLM across all views, dark + light + MM + 360px):
+  * Found: 19px horizontal overflow at 360px (GlassCard grid items lacked min-w-0 → truncated nowrap text inflated min-content)
+  * Found: StatCard label hard-truncated ("Upcoming Retirements" cut); chart x-axis label overlap; zero-value dashboard stats (newHires/retirees = 0 due to historical-only seed dates)
+  * Found: audit action badges all gold (no severity color), raw module keys (`background.criminal`) displayed untranslated
+  * Found: reports table rendered raw enum strings (ACTIVE/SUSPENDED as plain text), no print header; login page showed duplicate copyright (left panel + below form)
+  * Verified NOT broken (VLM false positives): staff-detail tab truncation, "Gender" label clip, email clip, pagination presence, reports date formats, audit IP column
+- Fixes applied:
+  * shared.tsx: GlassCard + `min-w-0`; StatCard label `line-clamp-2`; DataTable rows `align-middle` + default-cell truncate; sort icon contrast `text-muted-foreground/70`
+  * login.tsx: single copyright per breakpoint (left panel lg:block / form footer lg:hidden)
+  * STATUS_COLORS: added CREATE(green)/UPDATE(amber)/DELETE(red)/VIEW(slate)/LOGIN(violet)/LOGIN_FAILED(red)/LOGOUT(zinc)/EXPORT,DOWNLOAD(orange)
+  * New `useModuleLabel()` hook (shared.tsx) + `auditModules` i18n namespace (36 keys, EN+MM, dot→underscore flat keys; `reports.*` falls back to reportsModule labels) — wired into AuditLogsView (table + detail drawer) and dashboard activity feed
+  * reports.tsx: StatusBadge for enum-like values (BADGE_VALUES set), branded print header (MOGE HR + report title + date + row count) + print footer, no-print on controls, report selector active icon
+  * dashboard.tsx: department chart tickFormatter (14-char ellipsis), angle -25°, height 58, YAxis width 36, h-56 consistent; activity feed rows now [badge][module label]
+- Seed vitality (prisma/seed.ts): helpers `iso()`, `dobIn()`, `turning60In()` (year-boundary safe); Aung Myint & Hla Win DOBs → turning 60 in 75/230 days; Su Su Hlaing/Aye Aye Mar/Win Naing/Ei Ei Zin birthdays → today+9/16/24/28d; 3 new-hire staff (Thiri Aung/Kyaw Kyaw Htet/Nandar Su Latt, joined -55/-140/-25 days) → 28 staff total; counts/logs updated; re-seeded clean
+- Dashboard API: + upcomingBirthdays (employed staff, next-30-days, daysUntil, dept, sorted, top 6); dashboard UI: new "Upcoming Birthdays" glass card (Cake icon, avatar rows, Today/Tomorrow/In {n} days chips, click → staff detail) in 3-col row with Status Breakdown
+- NEW FEATURE — Org chart (Departments page):
+  * API `GET /api/org-chart` (ADMIN+): flat nodes with direct + subtree-aggregate headcount (DFS with cycle guard), positions per dept
+  * `OrgChartCard` in masters.tsx: recursive ul/li tree with hand-rolled CSS connector system in globals.css (`.org-tree` — li::before/::after horizontal halves, li::after border-left vertical drop, ul::before parent drop, root/only-child/first/last trimming), glass node cards (Building2 icon, localized name, code chip, Users headcount + "incl. sub-departments"), zoom controls (60–140% via CSS zoom), root gold accent, mobile horizontal scroll + swipe hint
+  * Node click → navigate('staff', { departmentId }) — StaffListView now reads viewParams.departmentId
+- NEW FEATURE — Bulk CSV staff import (ADMIN+):
+  * API `POST /api/staff/import`: zod row schema (max 200), DB + in-batch duplicate detection (staffNo/NRC), date/marital validation, auto staffNo (max-suffix+1 → MOGE-00XX), StaffPosition (dept falls back to position's dept), rank auto-derived from position level (L5→R1…L10→R6), JOINING service history, per-row results, audited as bulk CREATE
+  * `StaffImportModal` (staff-list.tsx): 3 steps — upload (dashed dropzone + template download with full example row) → preview (client-side validation: required name, gender/date/email/status/marital enum coercion, dept/position name-or-code resolution vs masters; valid/invalid counts; red rows with hover reasons) → result (attempted/created/failed tiles + failed-row details); RFC-4180 CSV parser (quotes, escaped quotes, CRLF, BOM); query invalidation on success
+  * i18n `import` namespace: 30 keys EN+MM
+- E2E verified via agent-browser: import test CSV (3 valid + 1 bad row) → preview flagged "Gender must be MALE, FEMALE or OTHER" → 3 created (MOGE-0029/30/31) with correct position/dept/rank/JOINING history → test data cleaned up (staff + audit rows); org chart 8 nodes, HR node click → staff list filtered (7 rows); birthdays card populated (5 entries incl. natural Myat Thu); retirees=2, newHires=3, total=28
+- Locale/theme regression: MM dashboard/org-chart/audit/reports all translated (စွမ်းအင်ဝန်ကြီးဌာန node, ဖန်တီး/ဝင်ရောက် badges, ကျား/တာဝန်ထမ်းဆောင်နေ report badges); light theme clean; 360px zero document overflow (org chart scrolls in-card); MM dashboard VLM: "no defects"
+- Docs: README features/counts updated (org chart, CSV import, 28 staff, ~717 i18n keys); 9 new screenshots in docs/screenshots/
+- Final checks: `bun run lint` 0 errors; `tsc --noEmit` 0 src errors; dev.log clean (only prisma queries)
+
+Stage Summary:
+- All QA defects fixed; two major features shipped (org chart, bulk import) + dashboard vitality (birthdays card, live stats, humanized activity feed)
+- i18n now 717 keys EN/MM strict parity (auditModules, orgChart, import, dashboard birthdays, common.done added)
+- Remaining ideas for future rounds: staff photo generation for seed avatars, printable report page-numbers, org chart print layout, export to Excel (xlsx), scheduled birthday reminders, audit log live-refresh toggle
+
+---
+Task ID: 4 (addendum)
+Agent: main-orchestrator
+Task: Final verification + print QA
+
+Work Log:
+- Print stylesheet verification: agent-browser PDF of Reports page — branded header (MOGE HR + report title + date + row count), white background, footer ("MOGE HR — Reports · 12 Oct 2026") all render (pdftotext + VLM: "Clean")
+- Final dashboard VLM (EN/light): "no defects"; locale switch back to EN verified (note: Language button aria-label localizes with active locale — by design)
+- Screenshots archived: docs/screenshots/{dashboard-final.png, report-print-page1.png, org-chart*.png, import-*.png, dashboard-*-v2.png}
+- Final gates: bun run lint → 0 errors; tsc --noEmit → 0 src errors; dev.log clean (200s only)
+
+Stage Summary:
+- Round 4 complete and stable; app verified across EN/MM × light/dark × desktop/360px

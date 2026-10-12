@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useI18n } from '@/i18n'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ import { apiUpload } from '@/lib/client-api'
 // ============ Layout primitives ============
 
 export function GlassCard({ children, className = '', hover = false }: { children: React.ReactNode; className?: string; hover?: boolean }) {
-  return <div className={`glass rounded-2xl ${hover ? 'glass-hover' : ''} ${className}`}>{children}</div>
+  return <div className={`glass min-w-0 rounded-2xl ${hover ? 'glass-hover' : ''} ${className}`}>{children}</div>
 }
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
@@ -95,6 +95,16 @@ const STATUS_COLORS: Record<string, string> = {
   DECEASED: 'bg-zinc-500/12 text-zinc-700 dark:text-zinc-300 border-zinc-500/30',
   REJECTED: 'bg-red-500/12 text-red-700 dark:text-red-300 border-red-500/30',
   CANCELLED: 'bg-zinc-500/12 text-zinc-600 dark:text-zinc-300 border-zinc-500/30',
+  // Audit actions
+  CREATE: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+  UPDATE: 'bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/30',
+  DELETE: 'bg-red-500/12 text-red-700 dark:text-red-300 border-red-500/30',
+  VIEW: 'bg-slate-500/12 text-slate-600 dark:text-slate-300 border-slate-500/30',
+  LOGIN: 'bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/30',
+  LOGIN_FAILED: 'bg-red-500/12 text-red-700 dark:text-red-300 border-red-500/30',
+  LOGOUT: 'bg-zinc-500/12 text-zinc-600 dark:text-zinc-300 border-zinc-500/30',
+  EXPORT: 'bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/30',
+  DOWNLOAD: 'bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/30',
 }
 
 export function StatusBadge({ value, className = '' }: { value: string | null | undefined; className?: string }) {
@@ -185,7 +195,7 @@ export function DataTable<T>({
                       onClick={() => onSort(col.key)}
                     >
                       {col.header}
-                      <ArrowUpDown className={`h-3 w-3 ${sortBy === col.key ? 'text-primary' : 'opacity-40'}`} />
+                      <ArrowUpDown className={`h-3 w-3 shrink-0 ${sortBy === col.key ? 'text-primary' : 'text-muted-foreground/70'}`} />
                     </button>
                   ) : (
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{col.header}</span>
@@ -202,8 +212,8 @@ export function DataTable<T>({
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
               >
                 {columns.map((col) => (
-                  <TableCell key={col.key} className={col.className}>
-                    {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '—')}
+                  <TableCell key={col.key} className={`align-middle ${col.className ?? ''}`}>
+                    {col.render ? col.render(row) : <span className="block truncate text-sm">{String((row as Record<string, unknown>)[col.key] ?? '—')}</span>}
                   </TableCell>
                 ))}
               </TableRow>
@@ -577,7 +587,7 @@ export function StatCard({ label, value, icon: Icon, onClick, accent = 'gold', h
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+            <p className="line-clamp-2 text-xs font-medium leading-snug text-muted-foreground">{label}</p>
             <p className="text-xl font-semibold tracking-tight sm:text-2xl">{value}</p>
             {hint && <p className="truncate text-xs text-muted-foreground/70">{hint}</p>}
           </div>
@@ -638,6 +648,26 @@ export function InfoRow({ label, value, full }: { label: string; value: React.Re
 export function useEnumOptions(enumKey: string, values: readonly string[]): { value: string; label: string }[] {
   const { t } = useI18n()
   return useMemo(() => values.map((v) => ({ value: v, label: t(`enums.${v}`) })), [values, t, enumKey])
+}
+
+// Humanize audit module keys (e.g. "background.criminal" -> "Criminal Records")
+export function useModuleLabel() {
+  const { t } = useI18n()
+  return useCallback((module: string | null | undefined): string => {
+    if (!module) return '—'
+    const flat = module.replace(/\./g, '_')
+    const direct = t(`auditModules.${flat}`)
+    if (direct !== `auditModules.${flat}`) return direct
+    if (module.startsWith('reports.')) {
+      const camel = module.slice(8).replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+      const rpt = t(`reportsModule.${camel}`)
+      if (rpt !== `reportsModule.${camel}`) return rpt
+    }
+    return module
+      .split('.')
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, ' '))
+      .join(' · ')
+  }, [t])
 }
 
 export { useI18n }

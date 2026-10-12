@@ -8,7 +8,7 @@
  *   • 3 roles + 19 permissions, 3 users (superadmin / admin / user)
  *   • Org structure: 8 departments, 10 positions, 6 ranks
  *   • Master data: awards, trainings, political parties, conflict areas
- *   • 25 staff with full sub-records (address / family / education /
+ *   • 28 staff with full sub-records (address / family / education /
  *     language / skill / position / rank / service-history) plus every
  *     movement and background module (promotions, transfers, separations,
  *     trainings, awards, military, activities, hobbies, political,
@@ -32,6 +32,28 @@ const db = new PrismaClient()
 
 const d = (s: string): Date => new Date(s)
 const clamp = (n: number, lo: number, hi: number): number => Math.min(Math.max(n, lo), hi)
+const pad2 = (n: number): string => String(n).padStart(2, '0')
+
+/** ISO date string `offsetDays` from today (dynamic demo dates — new hires, retirement due). */
+const iso = (offsetDays: number): string => {
+  const t = new Date()
+  t.setDate(t.getDate() + offsetDays)
+  return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`
+}
+
+/** DOB string whose birthday anniversary occurs `offsetDays` from now, born in `year`. */
+const dobIn = (offsetDays: number, year: number): string => {
+  const t = new Date()
+  t.setDate(t.getDate() + offsetDays)
+  return `${year}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`
+}
+
+/** DOB string for someone turning 60 exactly `offsetDays` from now (year-boundary safe). */
+const turning60In = (offsetDays: number): string => {
+  const t = new Date()
+  t.setDate(t.getDate() + offsetDays)
+  return `${t.getFullYear() - 60}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`
+}
 
 /** Deterministic PRNG (mulberry32) — same data on every run. */
 let rngState = 0x4d4f4745 // "MOGE"
@@ -153,11 +175,11 @@ const S = (nameEn: string, nameMm: string, gender: 'MALE' | 'FEMALE', dob: strin
 // position level so StaffRank stays consistent with the held position.
 const STAFF: StaffSpec[] = [
   // 0 — linked to the demo user account; rich timeline
-  S('Aung Myint', 'အောင်မြင့်', 'MALE', '1962-05-14', 'Yangon', 'Buddhist', 'Myanmar', 'O+', 'MARRIED', '1995-03-01', 'ACTIVE', [
+  S('Aung Myint', 'အောင်မြင့်', 'MALE', turning60In(75), 'Yangon', 'Buddhist', 'Myanmar', 'O+', 'MARRIED', '1995-03-01', 'ACTIVE', [
     { pos: 'HRM', dept: 'HR', start: d('1995-03-01'), end: d('2012-09-30'), event: 'JOINING' },
     { pos: 'DIR', dept: 'HR', start: d('2012-10-01'), event: 'PROMOTION' },
   ], [{ type: 'APPOINTMENT', title: 'Appointed as Head of HR Administration', date: d('2002-06-01') }]),
-  S('Su Su Hlaing', 'စုစုလှိုင်', 'FEMALE', '1975-08-20', 'Mandalay', 'Buddhist', 'Myanmar', 'B+', 'MARRIED', '2001-07-02', 'ACTIVE', [
+  S('Su Su Hlaing', 'စုစုလှိုင်', 'FEMALE', dobIn(9, 1975), 'Mandalay', 'Buddhist', 'Myanmar', 'B+', 'MARRIED', '2001-07-02', 'ACTIVE', [
     { pos: 'HRM', dept: 'HR', start: d('2001-07-02'), end: d('2011-06-30'), event: 'JOINING' },
     { pos: 'DEP', dept: 'HR', start: d('2011-07-01'), event: 'PROMOTION' },
   ]),
@@ -177,7 +199,7 @@ const STAFF: StaffSpec[] = [
     { pos: 'AA', dept: 'HR', start: d('2002-08-15'), end: d('2008-09-30'), event: 'JOINING' },
     { pos: 'ACC', dept: 'FIN', start: d('2008-10-01'), event: 'PROMOTION' },
   ]),
-  S('Aye Aye Mar', 'အေးအေးမာ', 'FEMALE', '1988-04-07', 'Bago', 'Buddhist', 'Myanmar', 'O+', 'MARRIED', '2011-05-30', 'ACTIVE', [
+  S('Aye Aye Mar', 'အေးအေးမာ', 'FEMALE', dobIn(16, 1988), 'Bago', 'Buddhist', 'Myanmar', 'O+', 'MARRIED', '2011-05-30', 'ACTIVE', [
     { pos: 'AA', dept: 'HR', start: d('2011-05-30'), end: d('2020-04-30'), event: 'JOINING' },
     { pos: 'ACC', dept: 'FIN', start: d('2020-05-01'), event: 'PROMOTION' },
   ]),
@@ -202,11 +224,11 @@ const STAFF: StaffSpec[] = [
     { pos: 'OPS', dept: 'OPS', start: d('2010-10-11'), end: d('2018-03-31'), event: 'JOINING' },
     { pos: 'FEN', dept: 'ENG-F', start: d('2018-04-01'), event: 'PROMOTION' },
   ]),
-  S('Hla Win', 'လှဝင်း', 'MALE', '1972-02-27', 'Sagaing', 'Buddhist', 'Myanmar', 'O+', 'MARRIED', '1996-09-02', 'ACTIVE', [
+  S('Hla Win', 'လှဝင်း', 'MALE', turning60In(230), 'Sagaing', 'Buddhist', 'Myanmar', 'O+', 'MARRIED', '1996-09-02', 'ACTIVE', [
     { pos: 'AA', dept: 'HR', start: d('1996-09-02'), end: d('2009-02-28'), event: 'JOINING' },
     { pos: 'MNT', dept: 'ENG-M', start: d('2009-03-01'), event: 'PROMOTION' },
   ]),
-  S('Win Naing', 'ဝင်းနိုင်', 'MALE', '1984-08-09', 'Yangon', 'Buddhist', 'Myanmar', 'A+', 'MARRIED', '2008-07-21', 'ACTIVE', [
+  S('Win Naing', 'ဝင်းနိုင်', 'MALE', dobIn(24, 1984), 'Yangon', 'Buddhist', 'Myanmar', 'A+', 'MARRIED', '2008-07-21', 'ACTIVE', [
     { pos: 'OPS', dept: 'OPS', start: d('2008-07-21'), end: d('2015-08-31'), event: 'JOINING' },
     { pos: 'MNT', dept: 'ENG-M', start: d('2015-09-01'), event: 'TRANSFER' },
   ]),
@@ -226,7 +248,7 @@ const STAFF: StaffSpec[] = [
     { pos: 'OPS', dept: 'OPS', start: d('2013-06-10'), end: d('2018-09-30'), event: 'JOINING' },
     { pos: 'FEN', dept: 'ENG-F', start: d('2018-10-01'), event: 'PROMOTION' },
   ]),
-  S('Ei Ei Zin', 'အီအီဇင်', 'FEMALE', '1993-07-14', 'Yangon', 'Buddhist', 'Myanmar', 'B+', 'SINGLE', '2017-08-07', 'ACTIVE', [
+  S('Ei Ei Zin', 'အီအီဇင်', 'FEMALE', dobIn(28, 1993), 'Yangon', 'Buddhist', 'Myanmar', 'B+', 'SINGLE', '2017-08-07', 'ACTIVE', [
     { pos: 'AA', dept: 'HR', start: d('2017-08-07'), end: d('2021-03-31'), event: 'JOINING' },
     { pos: 'AA', dept: 'FIN', start: d('2021-04-01'), event: 'TRANSFER' },
   ]),
@@ -259,6 +281,18 @@ const STAFF: StaffSpec[] = [
     { pos: 'AA', dept: 'HR', start: d('2010-02-01'), end: d('2016-07-31'), event: 'JOINING' },
     { pos: 'OPS', dept: 'OPS', start: d('2016-08-01'), event: 'PROMOTION' },
   ], [{ type: 'OTHER', title: 'Suspended from duty pending disciplinary review', date: d('2025-01-10') }]),
+  // 26 — NEW HIRE (joined this year — dashboard "New Hires")
+  S('Thiri Aung', 'သီရိအောင်', 'FEMALE', '1998-04-12', 'Yangon', 'Buddhist', 'Myanmar', 'A+', 'SINGLE', iso(-55), 'ACTIVE', [
+    { pos: 'AA', dept: 'HR', start: d(iso(-55)), event: 'JOINING' },
+  ]),
+  // 27 — NEW HIRE (joined this year)
+  S('Kyaw Kyaw Htet', 'ကျော်ကျော်ထက်', 'MALE', '1996-09-03', 'Mawlamyine', 'Buddhist', 'Myanmar', 'B+', 'SINGLE', iso(-140), 'ACTIVE', [
+    { pos: 'OPS', dept: 'OPS', start: d(iso(-140)), event: 'JOINING' },
+  ]),
+  // 28 — NEW HIRE (joined this year)
+  S('Nandar Su Latt', 'နန်းသားစုလှ', 'FEMALE', '1999-12-18', 'Mandalay', 'Buddhist', 'Myanmar', 'O+', 'SINGLE', iso(-25), 'ACTIVE', [
+    { pos: 'AA', dept: 'FIN', start: d(iso(-25)), event: 'JOINING' },
+  ]),
 ]
 
 /* ========================= movement & module data ========================= */
@@ -702,7 +736,7 @@ async function seedMasters(): Promise<void> {
 }
 
 async function seedStaffAndSubRecords(): Promise<void> {
-  console.log('→ 25 staff records + sub-records (addresses / family / education / languages / skills / positions / ranks / service history)')
+  console.log(`→ ${STAFF.length} staff records + sub-records (addresses / family / education / languages / skills / positions / ranks / service history)`)
 
   for (let i = 0; i < STAFF.length; i++) {
     const s = STAFF[i]

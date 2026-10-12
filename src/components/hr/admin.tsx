@@ -7,7 +7,7 @@ import { apiGet, apiPost, apiPut, apiDelete, apiQuery, qs, downloadCsv } from '@
 import { useUI } from '@/store/ui'
 import {
   GlassCard, PageHeader, DataTable, StatusBadge, RowActionsMenu, ConfirmDialog, FormModal,
-  StaffAvatar, FormGrid, type FormValues, rowToValues, type Column,
+  StaffAvatar, FormGrid, useModuleLabel, type FormValues, rowToValues, type Column,
 } from './shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -245,6 +245,7 @@ interface AuditRow {
 
 export function AuditLogsView() {
   const { t, formatDate, formatNumber } = useI18n()
+  const moduleLabel = useModuleLabel()
   const [search, setSearch] = useState('')
   const [action, setAction] = useState('ALL')
   const [from, setFrom] = useState('')
@@ -276,7 +277,7 @@ export function AuditLogsView() {
     { key: 'createdAt', header: t('fields.timestamp'), render: (r) => formatDate(r.createdAt, { hour: '2-digit', minute: '2-digit' }) },
     { key: 'userName', header: t('fields.userName'), render: (r) => <span className="text-sm font-medium">{r.userName || '—'}</span> },
     { key: 'action', header: t('fields.action'), render: (r) => <StatusBadge value={r.action} /> },
-    { key: 'module', header: t('fields.module'), hideOnMobile: true },
+    { key: 'module', header: t('fields.module'), hideOnMobile: true, render: (r) => <span className="text-xs font-medium text-muted-foreground">{moduleLabel(r.module)}</span> },
     { key: 'entityType', header: t('fields.entityType'), hideOnMobile: true },
     { key: 'changedFields', header: t('fields.changedFields'), hideOnMobile: true, render: (r) => parseFields(r.changedFields).join(', ') || '—' },
     { key: 'ipAddress', header: t('fields.ipAddress'), hideOnMobile: true, render: (r) => <span className="text-xs">{r.ipAddress || '—'}</span> },
@@ -335,7 +336,7 @@ export function AuditLogsView() {
         <SheetContent className="glass w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              {detail && <StatusBadge value={detail.action} />} {detail?.module}
+              {detail && <StatusBadge value={detail.action} />} {detail && <span className="text-sm text-muted-foreground">{moduleLabel(detail.module)}</span>}
             </SheetTitle>
             <SheetDescription>
               {detail?.entityType} {detail?.entityId ? `· ${detail.entityId.slice(0, 12)}…` : ''} · {detail && formatDate(detail.createdAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
