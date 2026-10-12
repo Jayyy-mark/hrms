@@ -54,11 +54,11 @@ server.log
 /skills/
 
 
-./tests
-./upload
-./download
-./docs
-./design
-./examples
-./design
+tests
+upload
+download
+docs
+design
+examples
+design
 .zscripts
